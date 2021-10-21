@@ -1,0 +1,34 @@
+<!-- Prepares the browser to read HTML version 5 -->
+<!DOCTYPE html>
+<!-- Opens the HTML tag -->
+<html>
+  <!-- Opens the head tag -->
+  <head>
+    <!-- Opens the character type for the document -->
+    <meta charset="utf-8">
+    <!-- Sets the title of the tab -->
+    <title>Encryption</title>
+    <!-- Declares source file (javascript) so HTML knows where to access functions -->
+    <script src="js/encryptScrabble.js"></script>
+    <!-- closes the head tag -->
+  </head>
+  <!-- Opens the body tag -->
+  <body>
+    <!-- Essentially telling the font to be bigger as per preset "h1" perameters -->
+    <h1>Encrypt a Message</h1>
+    <!-- Holds a value input by the user; creates user field -->
+    <input type = "text" placeholder="Type " id="message">
+    <!-- Creates a button that calls on encrypt_click function when prompted by user -->
+    <button type = "button" onclick="encrypt_click();">Ecrypt Message</button>
+    <!-- Paragraph tag; "id = output1" creates an object class that can be changed; br = /n -->
+    <p id = "output1">Encrypted message</p><br><br><br>
+    <!-- Holds a value input by the user; creates user field -->
+    <input type = "text" placeholder="Type " id="code">
+    <!-- Creates a button that calls on decrypt_click function when prompted by user -->
+    <button type = "button" onclick="decrypt_click();">Decrypt Message</button>
+    <!-- Paragraph tag; "id = output1" creates an object class that can be changed -->
+    <p id = "output2">Decrypted message</p>
+    <!-- Closes the body tag -->
+  </body>
+  <!-- Closes the HTML tag -->
+</html>
