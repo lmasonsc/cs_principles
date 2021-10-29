@@ -1,0 +1,100 @@
+<!-- Prepares the browswer to read HTML version 5 -->
+<!DOCTYPE html>
+<!-- Opens html tag -->
+<html>
+  <!-- Opens head tag-->
+  <head>
+    <!-- Opens the character type for the document -->
+    <meta charset="utf-8">
+    <!-- Title of tab -->
+    <title>Data Structures</title>
+    <script>
+      // welcome to objects
+      // Create an object that is a pet, car, or favorite athlete
+      let friend = {
+        Name: "",
+        Age: 10,
+        Type: "Burnese",
+        Gender: "Male",
+        Weight: 120,
+      }
+      
+      // Welcome to constructors...
+      function dog(name,age){
+        this.name = name;
+        this.age = age;
+      }
+
+      class Dog{
+        constructor(name, age){
+          this.name = name;
+          this.age = age;
+          this.speak = function(bark){
+            console.log(bark);
+          }
+        }
+        run(){
+
+        }
+        draw(){
+
+        }
+      }
+      let myDog = new Dog("Doofus", 2);
+      let yourDog = new Dog("Roofus", 4);
+      yourDog.bark("WOOOOF!");
+      console.log(myDog.name);
+      console.log(myDog.age);
+      console.log(yourDog.name);
+      console.log(yourDog.age);
+      
+      class Wolf{
+        constructor(name, sex, age, weight){
+          this.name = name;
+          this.sex = sex;
+          this.age = age;
+          this.weight = weight;
+        }
+        sleep(){
+
+        }
+        prowl(){
+
+        }
+        protect_young(){
+
+        }
+      }
+      let alphaWolf = new Wolf("Gary", "male", 7, 100);
+
+      function input() 
+      {
+        // Selecting the input element and get its value 
+        return document.getElementById("inputId").value;
+      }
+
+      function process()
+      {
+        // set a variable to whatever is in the HTML field using the input function
+        // which gets the value from 'inputId'
+        dog.name = input();
+        output("The dog's name is now: " + dog.name);
+      }
+
+      function output(content)
+      {
+        document.getElementById("display1").innerHTML = content;
+      }
+    </script>
+    <link href = "css/myStyle.css" rel = "stylesheet">
+  <!-- Closes head tag -->
+  </head>
+  <!-- Opens body tag (the stuff you actually see)-->
+  <body>
+    <h1>Data structure practice</h1>
+    <input type = "text" placeholder = "Type" id = "inputId">
+    <button type="button" onclick="process();">Input</button>
+    <p>Output:</p>
+    <p id="display1">Output will replace this...</p>
+  </body>
+</html>
