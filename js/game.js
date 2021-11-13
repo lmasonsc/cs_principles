@@ -1,78 +1,319 @@
-// global variables
+// Global variables
 let canvas;
 let ctx;
-let WIDTH = 600;
-let HEIGHT = 400;
+let TILESIZE = 32;
+let WIDTH = TILESIZE * 22;
+let HEIGHT = TILESIZE * 9;
+let allSprites = [];
+let walls = [];
 
-// here we use init (short for initialize) to setup the canvas and context
-// this function will be called in the HTML document in body onload = ""
-// we also append the body with a new canvas element
+// Gets user input from keyboard
+let keysDown = {};
+let keysUp = {};
+
+// Creates game plan for usage in constructing grid and adding sprites
+let gamePlan = `
+......................
+..#................#..
+..#................#..
+..#................#..
+..#........#####...#..
+..#####............#..
+......#............#..
+......##############..
+......................`;
+// "Wall" sprite must be created before '#' can be defined
+
+// Waits for user input in a key ("keydown" = pressing computer key)
+addEventListener("keydown", function (event) {
+    // Adds pressed key to keysDown variable for recognition in separate functions
+    keysDown[event.key] = true;
+}, false);
+
+// Waits for end of user input in a key ("keyup" = letting go of computer key)
+addEventListener("keyup", function (event) {
+    // Removes unpressed key from keysDown variable to prevent recognition in separate functions
+    delete keysDown[event.key];
+}, false);
+
+// Function called in html document in "body onload = "
 function init() {
+    // Creates canvas
     canvas = document.createElement("canvas");
+    // Sets width and height of canvas
     canvas.width = WIDTH;
     canvas.height = HEIGHT;
+    // Sets up context
     ctx = canvas.getContext('2d');
     console.log("game initialized");
     document.body.appendChild(canvas);
+    // Initializes gameloop
     gameLoop();
 }
 
-class Square {
-    constructor(id, x, y, w, h, color, speed) {
-        this.id = id;
+// Creates class
+class Sprite {
+    // Constructor function creates array that defines class
+    constructor(x, y, w, h, color) {
+        // Attaches constructor array to variables
         this.x = x;
         this.y = y;
         this.w = w;
         this.h = h;
         this.color = color;
-        this.speed = 3
+        allSprites.push(this);
     }
-    update() {
-        if (this.x >= WIDTH-this.w || this.x < 0) {
-            console.log("AHHH! I fell off the side!");
-            this.speed = -this.speed;
-        }
-        this.x += Math.floor(Math.random()*1*this.speed);
-    };
+    get type() {
+        return "sprite";
+    }
+    // Object methods
+    // Object creates itself
+    create(x, y, w, h, color) {
+        return new Sprite(x, y, w, h, color);
+    }
+    // Object draws itself
     draw() {
         ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.w, this.h);
     };
 }
 
+// Extends Sprite class with Player class
+class Player extends Sprite {
+    // New constructor function extends Sprite array
+    constructor(x, y, speed, w, h, color) {
+        // Attaches constructor array to variables
+        super(x, y, w, h, color);
+        this.x = x;
+        this.y = y;
+        this.speed = speed;
+        this.w = w;
+        this.h = h;
+        this.color = color;
+    }
+    // Object methods
+    // Creates perameters for the Player to know if it has collided with another object
+    collideWith(obj) {
+        if (this.x + this.w > obj.x &&
+            this.x < obj.x + obj.w &&
+            this.y + this.h > obj.y &&
+            this.y < obj.y + obj.h
+        ) {
+            console.log(this.type + ' collides with ' + obj.type);
+            return true;
+        }
+    }
+    get type() {
+        return "player";
+    }
+    // Searches for specific key in keysDown array
+    input() {
+        if ('w' in keysDown) {
+            // Direction is up (negative)
+            this.dy = -1;
+            this.dx = 0;
+            // Velocity is negative
+            this.y -= this.speed;
+        }
+        if ('a' in keysDown) {
+            // Direction is left (negative)
+            this.dx = -1;
+            this.dy = 0;
+            // Velocity is negative
+            this.x -= this.speed;
+        }
+        if ('s' in keysDown) {
+            // Direction is down (positive)
+            this.dy = 1
+            this.dx = 0;
+            // Velocity is positive
+            this.y += this.speed;
+
+        }
+        if ('d' in keysDown) {
+            // Direction is right (positive)
+            this.dx = 1;
+            this.dy = 0;
+            // Velocity is positive
+            this.x += this.speed;
+        }
+
+    }
+    // Runs update function summoned through gameLoop
+    update() {
+        this.input();
+        // If right side of  Player runs into left side of canvas
+        if (this.x + this.w > WIDTH) {
+            // Right side of player remains at edge of right of canvas
+            this.x = WIDTH - this.w;
+        }
+        // If left side of Player runs into right side of canvas
+        if (this.x <= 0) {
+            // Left side of player remains at edge of canvas
+            this.x = 0;
+        }
+        // If bottom of Player collides with bottom of canvas
+        if (this.y + this.h > HEIGHT) {
+            // Bottom of player remains at bottom of canvas
+            this.y = HEIGHT - this.h;
+        }
+        // If top of Player collides with top of canvas
+        if (this.y <= 0) {
+            // Top of player remains at top of canvas
+            this.y = 0;
+        }
+    };
+}
+
+// Extends Sprite class with Wall class
+class Wall extends Sprite {
+    // New constructor function extends Sprite array (except it doesn't in this case)
+    constructor(x, y, w, h, color) {
+        // Attaches constructor array to variables
+        super(x, y, w, h, color);
+        this.x = x;
+        this.y = y;
+        this.w = w;
+        this.h = h;
+        this.color = color;
+    }
+    // Object methods
+    // Object creates itself
+    create(x, y, w, h, color) {
+        return new Wall(x, y, w, h, color);
+    }
+    get type() {
+        return "wall";
+    }
+}
+
+// Now that Wall object has been created, '#' is defined as Wall
+const levelChars = {
+    ".": "empty",
+    "#": Wall,
+};
+
+// Creates single array based on gamePlan
+function makeGrid(plan, width) {
+    // Sets two arrays for function
+    let newGrid = [];
+    let newRow = [];
+    // For every index in string
+    for (i of plan) {
+        // If i is a character and not the end of the line
+        if (i != "\n") {
+            // Push the character (either '.' or '#') into newRow array
+            newRow.push(i);
+        }
+        // If the function reaches the end of the row (that has characters in it)
+        if (newRow.length % width == 0 && newRow.length != 0) {
+            // Push the row into newGrid array
+            newGrid.push(newRow);
+            // Reset newRow array for next function
+            newRow = [];
+        }
+    }
+    // Return the newGrid array
+    return newGrid;
+}
+
+console.log("here's the grid...\n" + makeGrid(gamePlan, 22));
+
+function readLevel(grid) {
+    let startActors = [];
+    // For every row (y is an array)
+    for (y in grid) {
+        // For every x in the current y array
+        for (x in grid[y]) {
+            /*              creat a variable based on the current
+            item in the two dimensional array being read
+             */
+            let ch = grid[y][x];
+            /* if the character is not a new line character
+            create a variable from the value attached to the 
+            key in the object, e.g. 
+
+            const levelChars = {
+                ".": "empty",
+                "#": Square,
+            };
+
+            where "." is the key and the value is "empty"
+            In the case of "#", the key is "#" and the value
+            is the Square class.
+            
+            */
+            // Makes sure variable is not a new line character
+            if (ch != "\n") {
+                let type = levelChars[ch];
+                if (typeof type == "string") {
+                    startActors.push(type);
+                } else {
+                    let t = new type;
+                    // let id = Math.floor(100*Math.random());
+                    /*  Here we can use the x and y values from reading the grid, 
+                        then adjust them based on the tilesize
+                         */
+                    startActors.push(t.create(x * TILESIZE, y * TILESIZE, TILESIZE, TILESIZE, 'red'))
+                }
+            }
+        }
+    }
+    return startActors;
+}
+
+
+let currentLevel = readLevel(makeGrid(gamePlan, 22))
+console.log('current level');
+console.log(currentLevel);
+
 // instantiations...
-let oneSquare = new Square("Bob", 10, 10, 50, 50, 'rgb(200, 100, 200)');
-let twoSquare = new Square("Chuck", 60, 60, 100, 100, 'rgb(200, 200, 0)');
+let player1 = new Player(WIDTH / 1.5, HEIGHT / 1.5, 10, TILESIZE, TILESIZE, 'rgb(100, 100, 100)', 100);
 
-let someArray = [oneSquare, twoSquare];
-for (i in someArray) {
-    console.log(someArray[i]);
-}
-for (i of someArray) {
-    console.log(i);
-}
 
+console.log(allSprites);
+console.log(walls);
 
 function update() {
-    oneSquare.update();
+    for (i of allSprites) {
+        if (i.type == "wall") {
+            // console.log(i)
+            if (player1.collideWith(i)) {
+                if (player1.dx == 1) {
+                    player1.x = i.x - player1.w;
+                }
+                else if (player1.dx == -1) {
+                    player1.x = i.x + i.w;
+                }
+                else if (player1.dy == 1) {
+                    player1.y = i.y - player1.h;
+                }
+                else if (player1.dy == -1) {
+                    player1.y = i.y + i.h;
+                }
+                // console.log("player collided with walls")
+                console.log("player1 dx is:" + player1.dx);
+            }
+        }
+    }
+    player1.update();
 }
 // we now have just the drawing commands in the function draw
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    oneSquare.draw();
-    twoSquare.draw();
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+    for (i of allSprites) {
+        i.draw();
+    }
 }
 
-// here we have a big leap!
-// We are using the window.requestAnimationFrame() 
-// .requestAnimationFrame() is a method (likg a function attached to an object)
-// It tells the browser that you wish to animate
-// It asks the browser to call a specific function, in our case gameLoop
-// It uses this function to 'repaint'
-// In JS this called a callback, where a function passes an argument to another function
-// MDN reference https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame
+/* We are using the window.requestAnimationFrame() in our game loop
+.requestAnimationFrame() is a method (like a function attached to an object)
+It tells the browser that you wish to animate
+It asks the browser to call a specific function, in our case gameLoop
+It uses this function to 'repaint'
+In JS this called a callback, where a function passes an argument to another function
+MDN reference https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame */
 let gameLoop = function () {
-    // console.log('the game loop is alive! now comment this out before it eats up memory...')
     update();
     draw();
     window.requestAnimationFrame(gameLoop);
