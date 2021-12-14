@@ -1,20 +1,27 @@
-// Global variables
+// global variables
 let canvas;
 let ctx;
-let TILESIZE = 32;
+
+let TILESIZE = 64;
 let WIDTH = TILESIZE * 22;
 let HEIGHT = TILESIZE * 9;
 let allSprites = [];
 let walls = [];
+let enemies = [];
+let allProjectiles = [];
+let playerImage = new Image();
+playerImage.src = "../cs_principles/Images/bell.png"
+let blockImage = new Image();
+blockImage.src = "../cs_principles/Images/block.png"
+let pewImage = new Image();
+pewImage.src = "../cs_principles/Images/pew.png"
+let enemyImage = new Image();
+enemyImage.src = "../cs_principles/Images/pitbull_photo.jpg"
 
-// Gets user input from keyboard
-let keysDown = {};
-let keysUp = {};
 
-// Creates game plan for usage in constructing grid and adding sprites
 let gamePlan = `
 ......................
-..#................#..
+..#.......@........#..
 ..#................#..
 ..#................#..
 ..#........#####...#..
@@ -22,198 +29,315 @@ let gamePlan = `
 ......#............#..
 ......##############..
 ......................`;
-// "Wall" sprite must be created before '#' can be defined
 
-// Waits for user input in a key ("keydown" = pressing computer key)
+// get user input from keyboard
+let keysDown = {};
+let keysUp = {};
+
 addEventListener("keydown", function (event) {
-    // Adds pressed key to keysDown variable for recognition in separate functions
+    // keysDown = {};
     keysDown[event.key] = true;
+    // console.log(event);
 }, false);
 
-// Waits for end of user input in a key ("keyup" = letting go of computer key)
 addEventListener("keyup", function (event) {
-    // Removes unpressed key from keysDown variable to prevent recognition in separate functions
+    keysUp[event.key] = true;
     delete keysDown[event.key];
+    // console.log(event);
 }, false);
 
-// Function called in html document in "body onload = "
+function drawText(r, g, b, a, font, align, base, text, x, y) {
+    ctx.fillStyle = "rgba(" + r + "," + g + "," + b + "," + a + ")";
+    ctx.font = font;
+    ctx.textAlign = align;
+    ctx.textBaseline = base;
+    ctx.fillText(text, x, y);
+}
+
+// here we use init (short for initialize) to setup the canvas and context
+// this function will be called in the HTML document in body onload = ""
+// we also append the body with a new canvas element
 function init() {
-    // Creates canvas
     canvas = document.createElement("canvas");
-    // Sets width and height of canvas
     canvas.width = WIDTH;
     canvas.height = HEIGHT;
-    // Sets up context
     ctx = canvas.getContext('2d');
     console.log("game initialized");
     document.body.appendChild(canvas);
-    // Initializes gameloop
     gameLoop();
 }
 
-// Creates class
 class Sprite {
-    // Constructor function creates array that defines class
     constructor(x, y, w, h, color) {
-        // Attaches constructor array to variables
         this.x = x;
         this.y = y;
         this.w = w;
         this.h = h;
         this.color = color;
+        this.spliced = false;
         allSprites.push(this);
+    }
+    get cx() {
+        return this.x + this.w * 0.5;
+    }
+    get cy() {
+        return this.y + this.h * 0.5;
+    }
+    get left() {
+        return this.x
+    }
+    get right() {
+        return this.x + this.w
+    }
+    get top() {
+        return this.y
+    }
+    get midtop() {
+        return this.y + this.w * 0.5;
+    }
+    get bottom() {
+        return this.y + this.h
+    }
+    get midbottom() {
+        return (this.y + this.h) + this.w * 0.5
     }
     get type() {
         return "sprite";
     }
-    // Object methods
-    // Object creates itself
     create(x, y, w, h, color) {
         return new Sprite(x, y, w, h, color);
     }
-    // Object draws itself
+    collideWith(obj) {
+        if (this.x + this.w >= obj.x &&
+            this.x <= obj.x + obj.w &&
+            this.y + this.h >= obj.y &&
+            this.y <= obj.y + obj.h
+        ) {
+            return true;
+        }
+    }
+    // modified from https://github.com/pothonprogramming/pothonprogramming.github.io/blob/master/content/rectangle-collision/rectangle-collision.html
     draw() {
         ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.w, this.h);
     };
 }
 
-// Extends Sprite class with Player class
+
 class Player extends Sprite {
-    // New constructor function extends Sprite array
-    constructor(x, y, speed, w, h, color) {
-        // Attaches constructor array to variables
+    constructor(x, y, speed, w, h, color, hitpoints) {
         super(x, y, w, h, color);
         this.x = x;
         this.y = y;
+        this.vx = 0;
+        this.vy = 0;
+        this.dx = 0;
+        this.dy = 0;
         this.speed = speed;
         this.w = w;
         this.h = h;
+        this.canJump;
+        this.canShoot = true;
+        this.gravity = 0.98;
+        this.coFriction = 0.1;
+        this.jumpPower = 20;
         this.color = color;
+        this.hitpoints = hitpoints;
     }
-    // Object methods
-    // Creates perameters for the Player to know if it has collided with another object
-    collideWith(obj) {
-        if (this.x + this.w > obj.x &&
-            this.x < obj.x + obj.w &&
-            this.y + this.h > obj.y &&
-            this.y < obj.y + obj.h
-        ) {
-            console.log(this.type + ' collides with ' + obj.type);
-            return true;
-        }
+
+    jump() {
+        this.vy = -this.jumpPower;
+        this.canJump = false;
     }
+    pewpew() {
+        let p = new PewPew(this.x + this.w * 0.333, this.y, TILESIZE / 4, TILESIZE / 4);
+    }
+
+
     get type() {
         return "player";
     }
-    // Searches for specific key in keysDown array
     input() {
-        if ('w' in keysDown) {
-            // Direction is up (negative)
-            this.dy = -1;
-            this.dx = 0;
-            // Velocity is negative
-            this.y -= this.speed;
+        // checks for user input
+        if ("a" in keysDown) { // Player holding left
+            this.vx = -this.speed;
+        } else if ("d" in keysDown) { // Player holding right
+            this.vx = this.speed;
+        } else if (" " in keysDown && this.canJump) { // Player holding jump
+            this.jump();
         }
-        if ('a' in keysDown) {
-            // Direction is left (negative)
-            this.dx = -1;
-            this.dy = 0;
-            // Velocity is negative
-            this.x -= this.speed;
-        }
-        if ('s' in keysDown) {
-            // Direction is down (positive)
-            this.dy = 1
-            this.dx = 0;
-            // Velocity is positive
-            this.y += this.speed;
+        else if ("w" in keysDown) {
+            if (this.canShoot) {
+                this.pewpew();
+                this.canShoot = false;
+                setTimeout(() => this.canShoot = true, 100);
 
+            }
         }
-        if ('d' in keysDown) {
-            // Direction is right (positive)
-            this.dx = 1;
-            this.dy = 0;
-            // Velocity is positive
-            this.x += this.speed;
-        }
+
+        
 
     }
-    // Runs update function summoned through gameLoop
+    frictionX() {
+        if (this.vx > 0.5) {
+            this.vx -= this.coFriction;
+        } else if (this.vx < -0.5) {
+            this.vx += this.coFriction;
+        } 
+        else {
+            this.vx = 0;
+        }
+    }
+    draw(){
+            ctx.drawImage(playerImage, 0, 0, TILESIZE/2, TILESIZE/2, this.x, this.y, TILESIZE, TILESIZE);
+    }
     update() {
+        this.vy += this.gravity;
         this.input();
-        // If right side of  Player runs into left side of canvas
+        this.frictionX();
+        this.x += this.vx;
+        this.y += this.vy;
+        for (i of allSprites) {
+            if (i.type == "wall") {
+                if (this.collideWith(i)) {
+                    let diff = Math.abs(this.cx - i.cx);
+                    if (diff <= 32) {
+                        this.y = i.top - this.h;
+                        this.canJump = true;
+                        this.vy = 0
+                    }
+                    if (this.cy > i.cy) {
+                        if (this.vx > 0) {
+                            this.x = i.left - this.w;
+                        }
+                        else if (this.vx < 0) { this.x = i.right }
+                    }
+
+                }
+            }
+        }
+
         if (this.x + this.w > WIDTH) {
-            // Right side of player remains at edge of right of canvas
             this.x = WIDTH - this.w;
         }
-        // If left side of Player runs into right side of canvas
         if (this.x <= 0) {
-            // Left side of player remains at edge of canvas
             this.x = 0;
         }
-        // If bottom of Player collides with bottom of canvas
         if (this.y + this.h > HEIGHT) {
-            // Bottom of player remains at bottom of canvas
             this.y = HEIGHT - this.h;
         }
-        // If top of Player collides with top of canvas
         if (this.y <= 0) {
-            // Top of player remains at top of canvas
             this.y = 0;
         }
+
     };
+
 }
 
-// Extends Sprite class with Wall class
+class Enemy extends Sprite {
+    constructor(x, y, w, h) {
+        super(x, y, w, h);
+        this.x = x;
+        this.y = y;
+        this.vx = 1;
+        this.vy = 0;
+        this.w = w;
+        this.h = h;
+        this.speed = 6;
+        this.color = "blue";
+        enemies.push(this);
+        
+    }
+    create(x, y, w, h) {
+        return new Enemy(x, y, w, h);
+    }
+    get type() {
+        return "enemy";
+    }
+    draw(){
+        ctx.drawImage(enemyImage, 0, 0, 225, 225, this.x, this.y, TILESIZE, TILESIZE);
+    }
+    update() {
+        
+        this.x += this.vx * this.speed;
+        for (i of allSprites) {
+            if (i.type == "wall") {
+                if (this.collideWith(i)) {
+                    if (this.cx < i.cx) {
+                        this.speed = -6;
+                    }
+                    else {
+                        this.speed = 6;
+                    }
+
+                }
+
+            }
+        }
+    }
+}
+
+
 class Wall extends Sprite {
-    // New constructor function extends Sprite array (except it doesn't in this case)
-    constructor(x, y, w, h, color) {
-        // Attaches constructor array to variables
-        super(x, y, w, h, color);
+    constructor(x, y, w, h) {
+        super(x, y, w, h);
         this.x = x;
         this.y = y;
         this.w = w;
         this.h = h;
-        this.color = color;
-    }
-    // Object methods
-    // Object creates itself
-    create(x, y, w, h, color) {
-        return new Wall(x, y, w, h, color);
+        this.color = "red";
     }
     get type() {
         return "wall";
     }
+    create(x, y, w, h) {
+        return new Wall(x, y, w, h);
+    }
+    draw(){
+        ctx.drawImage(blockImage, 0, 0, TILESIZE/2, TILESIZE/2, this.x, this.y, TILESIZE, TILESIZE);
+    }
+}
+class PewPew extends Sprite {
+    constructor(x, y, w, h) {
+        super(x, y, w, h);
+        this.x = x;
+        this.y = y;
+        this.w = w;
+        this.h = h;
+        this.color = "red";
+        allProjectiles.push(this);
+        console.log('a pewpew was created...');
+        console.log(allProjectiles);
+    }
+
+    update() {
+        this.y -= 10;
+    }
+    draw(){
+        ctx.drawImage(pewImage, 0, 0, TILESIZE/2, TILESIZE/2, this.x, this.y, TILESIZE, TILESIZE);
+    }
 }
 
-// Now that Wall object has been created, '#' is defined as Wall
+
 const levelChars = {
     ".": "empty",
     "#": Wall,
+    "@": Enemy,
+
 };
 
-// Creates single array based on gamePlan
 function makeGrid(plan, width) {
-    // Sets two arrays for function
     let newGrid = [];
     let newRow = [];
-    // For every index in string
     for (i of plan) {
-        // If i is a character and not the end of the line
         if (i != "\n") {
-            // Push the character (either '.' or '#') into newRow array
             newRow.push(i);
         }
-        // If the function reaches the end of the row (that has characters in it)
         if (newRow.length % width == 0 && newRow.length != 0) {
-            // Push the row into newGrid array
             newGrid.push(newRow);
-            // Reset newRow array for next function
             newRow = [];
         }
     }
-    // Return the newGrid array
     return newGrid;
 }
 
@@ -221,11 +345,10 @@ console.log("here's the grid...\n" + makeGrid(gamePlan, 22));
 
 function readLevel(grid) {
     let startActors = [];
-    // For every row (y is an array)
+    // note the change from i to x and y
     for (y in grid) {
-        // For every x in the current y array
         for (x in grid[y]) {
-            /*              creat a variable based on the current
+            /*              crate a variable based on the current
             item in the two dimensional array being read
              */
             let ch = grid[y][x];
@@ -243,18 +366,17 @@ function readLevel(grid) {
             is the Square class.
             
             */
-            // Makes sure variable is not a new line character
             if (ch != "\n") {
                 let type = levelChars[ch];
                 if (typeof type == "string") {
                     startActors.push(type);
                 } else {
-                    let t = new type;
+                    // let t = new type;
                     // let id = Math.floor(100*Math.random());
                     /*  Here we can use the x and y values from reading the grid, 
                         then adjust them based on the tilesize
                          */
-                    startActors.push(t.create(x * TILESIZE, y * TILESIZE, TILESIZE, TILESIZE, 'red'))
+                    startActors.push(new type(x * TILESIZE, y * TILESIZE, TILESIZE, TILESIZE))
                 }
             }
         }
@@ -263,57 +385,94 @@ function readLevel(grid) {
 }
 
 
-let currentLevel = readLevel(makeGrid(gamePlan, 22))
-console.log('current level');
-console.log(currentLevel);
+let currentLevel = readLevel(makeGrid(gamePlan, 22));
+console.log("here's the current level");
+for (i of currentLevel) {
+    
+    console.log(i);
+}
+
 
 // instantiations...
-let player1 = new Player(WIDTH / 1.5, HEIGHT / 1.5, 10, TILESIZE, TILESIZE, 'rgb(100, 100, 100)', 100);
+let player1 = new Player(WIDTH / 3, HEIGHT / 3, 6, TILESIZE, TILESIZE, 'rgb(100, 100, 100)', 100);
 
-
-console.log(allSprites);
-console.log(walls);
 
 function update() {
-    for (i of allSprites) {
-        if (i.type == "wall") {
-            // console.log(i)
-            if (player1.collideWith(i)) {
-                if (player1.dx == 1) {
-                    player1.x = i.x - player1.w;
-                }
-                else if (player1.dx == -1) {
-                    player1.x = i.x + i.w;
-                }
-                else if (player1.dy == 1) {
-                    player1.y = i.y - player1.h;
-                }
-                else if (player1.dy == -1) {
-                    player1.y = i.y + i.h;
-                }
-                // console.log("player collided with walls")
-                console.log("player1 dx is:" + player1.dx);
+    player1.update();
+    if (enemies.length == 0) {
+        new Enemy(WIDTH/2, 0, TILESIZE, TILESIZE, TILESIZE)
+    }
+    for (e of enemies) {
+        for (p of allProjectiles){
+            if (p.collideWith(e)){
+                console.log('projectile collided with enemy...');
+                p.spliced = true;
+                e.spliced = true;
             }
         }
+        e.update();
     }
-    player1.update();
+    for (p of allProjectiles) {
+        
+        if (p.y < 0){
+           p.spliced = true;
+        }
+        p.update();
+    }
+    for (p in allProjectiles){
+        if (allProjectiles[p].spliced){
+            allProjectiles.splice(p,1);
+            // allSprites.splice(p,1);
+        }
+    }   
+    for (e in enemies){
+        if (enemies[e].spliced){
+            enemies.splice(e,1);
+        }
+    }
+    for (s in allSprites){
+        if (allSprites[s].spliced){
+            allSprites.splice(s,1);
+        }
+    }
+    
+
 }
 // we now have just the drawing commands in the function draw
 function draw() {
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
     for (i of allSprites) {
+        // console.log(i);
         i.draw();
     }
-}
+    drawText(0, 0, 0, 1, "32px Helvetica", "left", "top", "FPS: " + fps, 256, 32);
+    drawText(0, 0, 0, 1, "32px Helvetica", "left", "top", "projectiles: " + allProjectiles.length, 256, 64);
+    drawText(0, 0, 0, 1, "32px Helvetica", "left", "top", "enemies: " + enemies.length, 256, 96);
 
-/* We are using the window.requestAnimationFrame() in our game loop
-.requestAnimationFrame() is a method (like a function attached to an object)
-It tells the browser that you wish to animate
-It asks the browser to call a specific function, in our case gameLoop
-It uses this function to 'repaint'
-In JS this called a callback, where a function passes an argument to another function
-MDN reference https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame */
+}
+// here we have a big leap!
+// We are using the window.requestAnimationFrame() in our game loop
+// .requestAnimationFrame() is a method (like a function attached to an object)
+// It tells the browser that you wish to animate
+// It asks the browser to call a specific function, in our case gameLoop
+// It uses this function to 'repaint'
+// In JS this called a callback, where a function passes an argument to another function
+
+// MDN reference https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame
+
+let then = performance.now();
+let now = null;
+let runtime = null;
+let fps = null;
+console.log("enemies " + enemies);
+
 let gameLoop = function () {
+    // console.log('the game loop is alive! now comment this out before it eats up memory...')
+    now = performance.now();
+    let delta = now - then;
+    fps = (Math.ceil(1000 / delta));
+    totaltime = now - then;
+    then = now;
     update();
     draw();
     window.requestAnimationFrame(gameLoop);
