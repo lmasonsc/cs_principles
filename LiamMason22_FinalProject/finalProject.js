@@ -1,6 +1,5 @@
 /* 
 Final project: brick breaker
-
 Main features - collision, enemy array (gamePlan), hitpoints
 */
 
@@ -14,6 +13,17 @@ let HEIGHT = TILESIZE*16
 let allSprites = [];
 let blocks = [];
 let balls = [];
+let blockImage = new Image();
+blockImage.src = "../LiamMason22_FinalProject/finalProject_Images/Charles.jpg"
+
+/* Edited from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random
+Instead of flooring or raising numbers, I just let min = min and max = max and removed the floor function from the math.random function */
+function getRandomNumber(min, max) {
+    min = min;
+    max = max;
+    // The maximum is exclusive and the minimum is inclusive - (max,min]
+    return (Math.random() * (max - min) + min);
+  }
 
 // Creates game plan for usage in constructing grid and adding sprites
 let gamePlan = `
@@ -74,30 +84,39 @@ class Sprite {
         this.spliced = false;
         allSprites.push(this);
     }
+    // Calculates a variable for the x-center
     get cx() {
         return this.x + this.w * 0.5;
     }
+    // Calculates a variable for the y-center
     get cy() {
         return this.y + this.h * 0.5;
     }
+    // Calculates a variable for the left side
     get left() {
         return this.x
     }
+    // Calculates a variable for the right side
     get right() {
         return this.x + this.w
     }
+    // Calculates a variable for the top
     get top() {
         return this.y
     }
+    // Calculates a variable for the center of the top edge
     get midtop() {
         return this.y + this.w * 0.5;
     }
+    // Calculates a variable for the bottom
     get bottom() {
         return this.y + this.h
     }
+    // Calculates a variable for the center of the bottom edge
     get midbottom() {
         return (this.y + this.h) + this.w * 0.5
     }
+    // Getter function
     get type() {
         return "sprite";
     }
@@ -149,6 +168,7 @@ class Player extends Sprite {
             this.vx = this.speed;
         }
         else {
+            // When no keys are pressed, motion stops
             this.vx = 0
         }
     }
@@ -180,6 +200,8 @@ class Player extends Sprite {
                 if (i.collideWith(this)) {
                     if (i.cy > this.cy) /*(ball above object)*/ {
                         i.vy = -1;
+                        // Uses getRandomNumber() function to have the ball bounce in a random x-velocity off the paddle
+                        i.vx = getRandomNumber(-1,1);
                         // console.log("Ball hits from above");
                         // console.log("Ball y-velicity is " + i.vy)
                     }
@@ -224,14 +246,17 @@ class Ball extends Sprite {
     }
     draw() {
         ctx.beginPath();
+        // Draws a circle instead of a square
         ctx.arc(this.x, this.y, this.r, 0, 2 * Math.PI);
         ctx.stroke();;
         ctx.fillStyle = this.color;
         ctx.fill();
     }
+    // Getter function
     get type() {
         return "ball";
     }
+    // Calculates the location of the outer circumference of the ball
     get edge() {
         return this.cx + this.r;
     }
@@ -239,15 +264,17 @@ class Ball extends Sprite {
     update() {
         this.x += this.vx * this.speed;
         this.y += this.vy * this.speed;
+        /* I moved the collision functions to the objects the ball would collide with
+        I couldn't get the ball to rebound off objects properly in the ball's update function */
     }
 }
 
 // Extends Sprite class with Block class
 class Block extends Sprite {
     // New constructor function extends Sprite array
-    constructor(x, y, w, h, color) {
+    constructor(x, y, w, h) {
         // Attaches constructor array to variables
-        super(x, y, w, h, color);
+        super(x, y, w, h);
         this.x = x;
         this.y = y;
         this.w = TILESIZE/1.2;
@@ -262,12 +289,19 @@ class Block extends Sprite {
     create(x, y, w, h, hitpoints, color) {
         return new Block(x, y, w, h, hitpoints, color);
     }
+    draw(){
+        ctx.drawImage(blockImage, 0, 0, 3024, 3024, this.x, this.y, TILESIZE/1.2, TILESIZE/1.2);
+    }
+    // Getter function
     get type() {
         return "block";
     }
     update() {
         for (i of allSprites) {
             if (i.type == "ball") {
+                /* My if collide loop is pretty buggy.
+                I couldn't figure out a way for the function to prioritize specific collisions,
+                so the ball will sometimes bounce the wrong way off of a wall or block.  */  
                 if (i.collideWith(this)) {
                         // console.log("Ball hits block");
                         this.hitpoints = this.hitpoints - 1;
@@ -296,7 +330,6 @@ class Block extends Sprite {
                 }
             }
         }
-        
     }
 }
 class Wall extends Sprite {
@@ -308,19 +341,23 @@ class Wall extends Sprite {
         this.y = y;
         this.w = TILESIZE;
         this.h = TILESIZE;
-        this.color = 'red';
+        this.color = 'blue';
     }
     // Object methods
     // Object creates itself
     create(x, y, w, h, color) {
         return new Wall(x, y, w, h, color);
     }
+    // Getter function
     get type() {
         return "wall";
     }
     update() {
         for (i of allSprites) {
             if (i.type == "ball") {
+                /* My if collide loop is pretty buggy.
+                I couldn't figure out a way for the function to prioritize specific collisions,
+                so the ball will sometimes bounce the wrong way off of a wall or block.  */ 
                 if (i.collideWith(this)) {
                     // Ball changes direction when it hits a wall
                     if (this.cy < i.cy) /*(ball below object)*/ {
@@ -333,11 +370,11 @@ class Wall extends Sprite {
                         // console.log("Ball hits from left");
                         // console.log("Ball x-velicity is " + i.vx);
                     }
-                    else if (i.cy > this.cy) /*(ball above object)*/ {
-                        i.vy = -1;
-                        // console.log("Ball hits from above");
-                        // console.log("Ball y-velicity is " + i.vy)
-                    }
+                    // else if (i.cy > this.cy) /*(ball above object)*/ {
+                    //     i.vy = -1;
+                    //     // console.log("Ball hits from above");
+                    //     // console.log("Ball y-velicity is " + i.vy)
+                    // }
                     else if (i.cx > this.cx) /*(ball right of object)*/ {
                         i.vx = 1;
                         // console.log("Ball hits from right");
@@ -440,13 +477,10 @@ function update() {
         b.update();
     }
 
-    /* 
-    I realized I need to splice an object from all the arrays containing it to completely get rid of it.
+    /* I realized I need to splice an object from all the arrays containing it to completely get rid of it.
     If a block is spliced from just the block array, it will still be drawn.
     If a block is spliced from just the allSprites array, it will still exist, just not be drawn.
-    Thus, I created a for loop to splice a block from all of the arrays.
-    */
-   
+    Thus, I created a for loop to splice a block from all of the arrays. */
     // Splices object from the blocks array
     for (b in blocks) {
         if (blocks[b].spliced) {
@@ -461,8 +495,8 @@ function update() {
         if (allSprites[i].spliced) {
             // splice(index, #deleted)
             allSprites.splice(i,1);
-            console.log("Object has been spliced");
-            console.log(allSprites.length);
+            // console.log("Object has been spliced");
+            // console.log(allSprites.length);
         }
     }
 }
